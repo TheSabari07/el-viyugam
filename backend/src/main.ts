@@ -1,21 +1,51 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module.js';
-import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  try {
+    // Create Nest Application
+    const app = await NestFactory.create(AppModule, {
+      cors: true,
+    });
 
-  const port = process.env.PORT || 3000;
+    // Global API Prefix
+    app.setGlobalPrefix('api');
 
-  await app.listen(port);
+    // Global Validation
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        transformOptions: {
+          enableImplicitConversion: true,
+        },
+      }),
+    );
+
+    // Config Service
+    const configService = app.get(ConfigService);
+
+    // Port Configuration
+    const port = configService.get<number>('PORT') || 3000;
+
+    // Enable Graceful Shutdown
+    app.enableShutdownHooks();
+
+    // Start Server
+    await app.listen(port);
+
+    logger.log(`🚀 Server running successfully`);
+    logger.log(`🌐 Application URL: http://localhost:${port}/api`);
+  } catch (error) {
+    logger.error('❌ Failed to start application', error);
+    process.exit(1);
+  }
 }
+
 bootstrap();
